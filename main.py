@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 from rich.console import Console
@@ -13,16 +14,62 @@ load_dotenv()
 
 console = Console()
 
+SEARCH_DIRS = [
+    Path.home() / "Downloads",
+    Path.home() / "Documents",
+    Path.home() / "Desktop",
+    Path(__file__).parent / "sample",
+]
+
+
+def find_pdfs() -> list[Path]:
+    found = []
+    for d in SEARCH_DIRS:
+        if d.exists():
+            found.extend(sorted(d.glob("*.pdf")))
+    return found
+
 
 def get_pdf_path() -> str:
     if len(sys.argv) > 1:
-        return sys.argv[1]
-    console.print("[bold yellow]No PDF path provided as argument.[/bold yellow]")
-    path = input("Enter path to PDF file: ").strip()
-    if not path:
-        console.print("[bold red]No path entered. Exiting.[/bold red]")
-        sys.exit(1)
-    return path
+        sys.argv.pop(1)
+        return sys.argv[0] if False else _pick_from_args()
+
+    pdfs = find_pdfs()
+
+    if pdfs:
+        console.print("[bold]Available PDF files:[/bold]")
+        for i, p in enumerate(pdfs, 1):
+            console.print(f"  [cyan]{i}[/cyan]. {p.name}  [dim]({p.parent})[/dim]")
+        console.print()
+
+    choice = console.input(
+        "[dim]Enter number, filename, or full path (or 'q' to quit):[/] "
+    ).strip()
+
+    if not choice or choice.lower() == "q":
+        return "q"
+
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(pdfs):
+            return str(pdfs[idx])
+        console.print("[bold red]Invalid number.[/bold red]")
+        return get_pdf_path()
+
+    if Path(choice).exists():
+        return choice
+
+    for p in pdfs:
+        if p.name.lower() == choice.lower() or p.stem.lower() == choice.lower():
+            return str(p)
+
+    console.print(f"[bold red]File not found:[/bold red] {choice}")
+    return get_pdf_path()
+
+
+def _pick_from_args() -> str:
+    return sys.argv[1] if len(sys.argv) > 1 else ""
 
 
 def print_entities_table(extracted: dict):
@@ -67,7 +114,10 @@ def main():
     console.print()
 
     while True:
+        console.print()
         pdf_path = get_pdf_path()
+        if pdf_path == "q":
+            break
         console.print()
 
         try:

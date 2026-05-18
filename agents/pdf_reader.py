@@ -16,13 +16,18 @@ class PDFReaderAgent:
             raise ValueError(f"Expected a .pdf file, got: {path.suffix}")
 
         pages = []
-        with pdfplumber.open(str(path)) as pdf:
-            for i, page in enumerate(pdf.pages, start=1):
-                text = page.extract_text() or ""
-                pages.append({
-                    "page": i,
-                    "text": text.strip(),
-                })
+        try:
+            with pdfplumber.open(str(path)) as pdf:
+                for i, page in enumerate(pdf.pages, start=1):
+                    text = page.extract_text() or ""
+                    pages.append({
+                        "page": i,
+                        "text": text.strip(),
+                    })
+        except Exception:
+            raise ValueError(
+                "Could not open this PDF. It may be password-protected or corrupted."
+            )
 
         if not any(p["text"] for p in pages):
             raise ValueError(
